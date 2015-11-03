@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta content='width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0' name='viewport'>
+<title>Yelp Viz for Biz - An Interactive Visualization </title>
+
+<script src='javascripts/d3.js' type='text/javascript'></script>
+<script src='javascripts/crossfilter.js' type='text/javascript'></script>
+<script src='javascripts/dc.js' type='text/javascript'></script>
+<script src='javascripts/jquery-1.9.1.min.js' type='text/javascript'></script>
+<script src='javascripts/bootstrap.min.js' type='text/javascript'></script>
+
+<link href='stylesheets/bootstrap.min.css' rel='stylesheet' type='text/css'>
+<link href='stylesheets/dc.css' rel='stylesheet' type='text/css'>
+
+<style type="text/css">
+body { 
+    padding-top: 40px; 
+}
+</style>
+<script type='text/javascript'>
+	/* load data from json */
+	d3.json("data/sample.json", function (yelp_data) {
+		// create charts
+		var bubbleChart = dc.bubbleChart("#dc-bubble-graph");
+		var dataTable = dc.dataTable("#dc-table-graph");
+
+		// feed data through crossfilter
+		var ndx = crossfilter(yelp_data);
+		
+		// for bubbles
+		var cityDimension = ndx.dimension(function (d) { return d.city; });
+		var cityGroup = cityDimension.group();
+		var cityDimensionGroup = cityDimension.group().reduce(
+			//add
+			function(p,v){
+				++p.count;
+				p.review_sum += v.review_count;
+				p.star_sum += v.stars;
+				p.review_avg = p.review_sum / p.count;
+				p.star_avg = p.star_sum / p.count;
+				return p;
+			},
+			//remove
+			function(p,v){
+				--p.count;
+				p.review_sum -= v.review_count;
+				p.star_sum -= v.stars;
+				p.review_avg = p.review_sum / p.count;
+				p.star_avg = p.star_sum / p.count;
+				return p;
+			},
+			//init
+			function(p,v){
+				return {count:0, review_sum: 0, star_sum: 0, review_avg: 0, star_avg: 0};
+			}
+		);
+
+		// for datatable
+		var businessDimension = ndx.dimension(function (d) { return d.business_id; });
+		
+		// set properties for bubble chart
+	 	bubbleChart
+	 		.width(800)
+			.height(300)
+			.dimension(cityDimension)
+			.group(cityDimensionGroup)
+			.transitionDuration(1500)
+			.colors(["#a60000","#ff0000", "#ff4040","#ff7373","#67e667","#39e639","#00cc00"])
+			.colorDomain([-12000, 12000])
+			.x(d3.scale.linear().domain([0, 5.5]))
+			.y(d3.scale.linear().domain([0, 5.5]))
+			.r(d3.scale.linear().domain([0, 2500]))
+			.keyAccessor(function (p) {
+				return p.value.star_avg;
+			})
+			.valueAccessor(function (p) {
+				return p.value.review_avg;
+			})
+			.radiusValueAccessor(function (p) {
+				return p.value.count;
+			})
+			.transitionDuration(1500)
+			.elasticY(true)
+			.yAxisPadding(1)
+			.xAxisPadding(1)
+			.label(function (p) {
+				return p.key;
+			})
+			.renderLabel(true)
+
+		dataTable
+			.width(800)
+			.height(800)
+			.dimension(businessDimension)
+			.group(function(d) { return "<p>Selected businesses</p>"})
+			.size(100)
+			.columns([
+			    	function(d) { return d.name; },
+			     	function(d) { return d.city; },
+			    	function(d) { return d.stars; },
+			    	function(d) { return d.review_count; },
+					function(d) { return '<a href=\"http://maps.google.com/maps?z=12&t=m&q=loc:' + d.latitude + '+' + d.longitude +"\" target=\"_blank\">Map</a>"}
+			    ])
+			.sortBy(function(d){ return d.stars; })
+			.order(d3.ascending);
+				
+		dc.renderAll();
+	});
+</script>
+</head>
+
+<body>
+	<div class='navbar navbar-fixed-top'>
+		<div class='navbar-inner'>
+			<div class='container'>
+				<h3>Yelp Viz for Biz - An Interactive Visualization</h3>
+				<p>This bubble chart compares average ratings, average reviews across the cities in Arizona with size of bubble representing number of businesses in a city.<p>
+			</div>
+		</div>
+	</div>
+
+	<div class='container' id='main-container'>
+		<div class='content'>
+			<div class='container' style='font: 10px sans-serif;'>
+				<h3>Visualisation of Yelp Business Data set</h3>
+				<div class='row-fluid'>
+					<div>
+						<div class='row-fluid'>
+							<div class='bubble-graph' id='dc-bubble-graph'>
+								<br>
+								<h4> Ratings (X), Reviews (Y) and Businesses (Size)</h4>
+							</div>
+						</div>
+						<p> x-axis -> Average ratings; y-axis -> Average reviews; size -> Number of businesses</p>
+						<div class='row-fluid'>
+							<div class='table-graph'>
+								<h4>Data Table for Selected Businesses</h4>
+								<table class='table table-hover dc-data-table' id='dc-table-graph'>
+									<thead>
+										<tr class='header'>
+											<th>Name</th>
+											<th>City</th>
+											<th>Review Score (stars)</th>
+											<th>Total Reviews</th>
+											<th>Location</th>
+										</tr>
+									</thead>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+	<div id='footer'>
+		<div class='container'><footer class='text-center'></footer>
+		</div>
+	</div>
+</body>
+</html>
